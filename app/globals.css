@@ -1,0 +1,130 @@
+@import "mapbox-gl/dist/mapbox-gl.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg-base: #0A0C0F;
+  --bg-surface: #111318;
+  --bg-elevated: #181C24;
+  --border: #1E2229;
+  --red: #E63946;
+  --amber: #F4A261;
+  --orange: #F97316;
+  --teal: #2A9D8F;
+  --text: #F0F2F5;
+  --muted: #6B7280;
+  --dim: #3D4450;
+}
+
+html,
+body {
+  background-color: #0A0C0F;
+  color: #F0F2F5;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* ─── Pulse animation for high-risk cluster markers ─── */
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(1.4);
+  }
+}
+
+.pulse-marker {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(230, 57, 70, 0.15);
+  border: 2.5px solid #e63946;
+  animation: pulse 2s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* ─── Mapbox popup reset ─── */
+.mapboxgl-popup-content {
+  background: transparent !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+}
+
+.mapboxgl-popup-tip {
+  display: none !important;
+}
+
+.mapboxgl-popup {
+  z-index: 10;
+}
+
+/* ─── Tooltip card ─── */
+.sr-popup {
+  background: #181c24;
+  border: 1px solid #1e2229;
+  border-radius: 6px;
+  padding: 8px 12px;
+  white-space: nowrap;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
+}
+
+.sr-popup-name {
+  color: #f0f2f5;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 3px;
+  font-family: var(--font-dm-sans), sans-serif;
+}
+
+.sr-popup-meta {
+  color: #6b7280;
+  font-size: 11px;
+  font-family: var(--font-dm-mono), monospace;
+  letter-spacing: 0.01em;
+}
+
+/* ─── Skeleton shimmer ─── */
+@keyframes shimmer {
+  0% {
+    background-position: -400px center;
+  }
+  100% {
+    background-position: 400px center;
+  }
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--bg-elevated) 25%,
+    #232836 50%,
+    var(--bg-elevated) 75%
+  );
+  background-size: 400px auto;
+  animation: shimmer 1.4s ease-in-out infinite;
+  border-radius: 4px;
+}
+
+/* ─── Mapbox attribution compact ─── */
+.mapboxgl-ctrl-attrib {
+  background: rgba(10, 12, 15, 0.7) !important;
+  color: #6b7280 !important;
+  font-size: 10px !important;
+}
+
+.mapboxgl-ctrl-attrib a {
+  color: #6b7280 !important;
+}

@@ -1,0 +1,170 @@
+[
+  {
+    "id": "king-ottawa",
+    "name": "King St E & Ottawa St S",
+    "lat": 43.4495,
+    "lng": -80.4862,
+    "count": 47,
+    "types": {
+      "rearEnd": 18,
+      "turning": 12,
+      "pedestrian": 8,
+      "angle": 5,
+      "other": 4
+    },
+    "severity": {
+      "fatal": 1,
+      "injury": 22,
+      "pdo": 24
+    },
+    "peakTime": "5pm–7pm",
+    "riskScore": 10
+  },
+  {
+    "id": "homer-watson-bleams",
+    "name": "Homer Watson Blvd & Bleams Rd",
+    "lat": 43.3968,
+    "lng": -80.4285,
+    "count": 38,
+    "types": {
+      "rearEnd": 15,
+      "turning": 10,
+      "pedestrian": 2,
+      "angle": 8,
+      "other": 3
+    },
+    "severity": {
+      "fatal": 1,
+      "injury": 10,
+      "pdo": 27
+    },
+    "peakTime": "7am–9am",
+    "riskScore": 9
+  },
+  {
+    "id": "fairway-wilson",
+    "name": "Fairway Rd N & Wilson Ave",
+    "lat": 43.4272,
+    "lng": -80.4613,
+    "count": 28,
+    "types": {
+      "rearEnd": 11,
+      "turning": 8,
+      "pedestrian": 1,
+      "angle": 5,
+      "other": 3
+    },
+    "severity": {
+      "fatal": 1,
+      "injury": 10,
+      "pdo": 17
+    },
+    "peakTime": "4pm–6pm",
+    "riskScore": 8
+  },
+  {
+    "id": "victoria-weber",
+    "name": "Victoria St N & Weber St E",
+    "lat": 43.4623,
+    "lng": -80.4948,
+    "count": 22,
+    "types": {
+      "rearEnd": 8,
+      "turning": 7,
+      "pedestrian": 4,
+      "angle": 2,
+      "other": 1
+    },
+    "severity": {
+      "fatal": 0,
+      "injury": 8,
+      "pdo": 14
+    },
+    "peakTime": "8am–10am",
+    "riskScore": 7
+  },
+  {
+    "id": "ira-needles-erb",
+    "name": "Ira Needles Blvd & Erb St W",
+    "lat": 43.4786,
+    "lng": -80.5651,
+    "count": 18,
+    "types": {
+      "rearEnd": 8,
+      "turning": 5,
+      "pedestrian": 2,
+      "angle": 2,
+      "other": 1
+    },
+    "severity": {
+      "fatal": 0,
+      "injury": 9,
+      "pdo": 9
+    },
+    "peakTime": "4pm–6pm",
+    "riskScore": 6
+  },
+  {
+    "id": "ottawa-manitou",
+    "name": "Ottawa St S & Manitou Dr",
+    "lat": 43.4032,
+    "lng": -80.4602,
+    "count": 14,
+    "types": {
+      "rearEnd": 5,
+      "turning": 3,
+      "pedestrian": 4,
+      "angle": 2,
+      "other": 0
+    },
+    "severity": {
+      "fatal": 0,
+      "injury": 6,
+      "pdo": 8
+    },
+    "peakTime": "12pm–2pm",
+    "riskScore": 5
+  },
+  {
+    "id": "king-university",
+    "name": "King St W & University Ave E",
+    "lat": 43.4683,
+    "lng": -80.5282,
+    "count": 11,
+    "types": {
+      "rearEnd": 4,
+      "turning": 3,
+      "pedestrian": 2,
+      "angle": 1,
+      "other": 1
+    },
+    "severity": {
+      "fatal": 0,
+      "injury": 4,
+      "pdo": 7
+    },
+    "peakTime": "8am–10am",
+    "riskScore": 4
+  },
+  {
+    "id": "strasburg-fischer-hallman",
+    "name": "Strasburg Rd & Fischer-Hallman Rd",
+    "lat": 43.4156,
+    "lng": -80.5318,
+    "count": 9,
+    "types": {
+      "rearEnd": 4,
+      "turning": 2,
+      "pedestrian": 1,
+      "angle": 1,
+      "other": 1
+    },
+    "severity": {
+      "fatal": 0,
+      "injury": 2,
+      "pdo": 7
+    },
+    "peakTime": "5pm–7pm",
+    "riskScore": 3
+  }
+]
