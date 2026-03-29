@@ -6,7 +6,7 @@
 
 > **SafeRoute KW maps real Kitchener collision data to help students, cyclists, and drivers see which intersections are dangerous — and what it would take to fix them.**
 
-🔗 **Live:** [saferouting.vercel.app](https://saferouting.vercel.app)
+🔗 **Live:** [saferoute.vercel.app](https://safe-route-a2kular-4386-a2kular-gmailcoms-projects.vercel.app/)
 
 ---
 
