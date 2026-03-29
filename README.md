@@ -10,7 +10,7 @@
 
 ---
 
-![SafeRoute KW screenshot](https://via.placeholder.com/1280x720?text=Show+Image)
+![SafeRoute KW screenshot](assets/screenshot.png)
 
 ---
 
