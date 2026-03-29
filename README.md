@@ -70,7 +70,7 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ## Data Source
 
-Collision records are sourced from the **[City of Kitchener Open Data portal](https://www.kitchener.ca/en/city-services/open-data.aspx)**, covering **8,598 collisions** across all Kitchener intersections from 2015 to 2022. Raw CSV records were cleaned, clustered by intersection, and enriched with risk scoring and collision-type breakdowns via a custom data pipeline.
+Collision records are sourced from the **[City of Kitchener Open Data portal](https://www.kitchener.ca/en/city-services/open-data.aspx)**, covering **8,598 collisions** across all Kitchener intersections. Raw CSV records were cleaned, clustered by intersection, and enriched with risk scoring and collision-type breakdowns via a custom data pipeline.
 
 ---
 
