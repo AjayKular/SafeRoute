@@ -94,4 +94,4 @@ Collision records are sourced from the **[City of Kitchener Open Data portal](ht
 
 **Ajay Kular** · [github.com/ajaykular](https://github.com/ajaykular)
 
-Built at **[Hack to the Future](https://lauriercs.ca)** — Laurier Computing Society · March 2026
+Built at **[Hack to the Future](https://lauriercs.ca/hack-to-the-future)** — Laurier Computing Society · March 2026
