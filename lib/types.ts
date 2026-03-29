@@ -8,6 +8,7 @@ export interface CollisionCluster {
     rearEnd: number;
     turning: number;
     pedestrian: number;
+    cyclist: number;
     angle: number;
     other: number;
   };

@@ -34,9 +34,37 @@ export default function Home() {
   // ── Selected cluster (map click → sidebar analysis) ───────────────────
   const [selected, setSelected] = useState<CollisionCluster | null>(null);
 
+  // Tracks which cluster (if any) was found via "My Risk Score" geolocation,
+  // and its distance. Cleared on every manual map click so the banner never
+  // lingers on the wrong analysis panel.
+  const [locationMeta, setLocationMeta] = useState<{
+    clusterId: string;
+    distanceMeters: number;
+  } | null>(null);
+
+  // Incremented each time geolocation runs and finds no cluster within 1 km.
+  // Using a counter (not a boolean) so repeated "no result" taps each trigger
+  // a fresh auto-dismiss timer in the Sidebar.
+  const [noNearbyCluster, setNoNearbyCluster] = useState(0);
+
   const handleSelect = useCallback((cluster: CollisionCluster) => {
+    setLocationMeta(null); // clear geolocation banner on manual map selection
     setSelected(cluster);
   }, []);
+
+  const handleNearbyResult = useCallback(
+    (cluster: CollisionCluster | null, distanceMeters: number) => {
+      if (cluster) {
+        setLocationMeta({ clusterId: cluster.id, distanceMeters });
+        setNoNearbyCluster(0);
+        setSelected(cluster);
+      } else {
+        setLocationMeta(null);
+        setNoNearbyCluster((n) => n + 1);
+      }
+    },
+    [],
+  );
 
   // Top 5 by riskScore for the leaderboard — clusters are already sorted
   // by riskScore desc from /api/clusters
@@ -68,7 +96,7 @@ export default function Home() {
       >
         {/* Map */}
         <div style={{ flex: 1, position: "relative", minWidth: 0 }}>
-          <Map onSelect={handleSelect} />
+          <Map onSelect={handleSelect} onNearbyResult={handleNearbyResult} />
         </div>
 
         {/* Sidebar */}
@@ -84,6 +112,8 @@ export default function Home() {
             selectedCluster={selected}
             leaderboardClusters={leaderboardClusters}
             loadingClusters={loadingClusters}
+            locationMeta={locationMeta}
+            noNearbyCluster={noNearbyCluster}
           />
         </div>
       </div>

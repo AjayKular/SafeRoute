@@ -20,6 +20,10 @@ interface SidebarProps {
   /** Top-5 clusters for the leaderboard, fetched once by page.tsx */
   leaderboardClusters: CollisionCluster[];
   loadingClusters: boolean;
+  /** Set when "My Risk Score" geolocation found a cluster nearby. */
+  locationMeta?: { clusterId: string; distanceMeters: number } | null;
+  /** Increments each time geolocation ran but found nothing within 1 km. */
+  noNearbyCluster?: number;
 }
 
 // ─── Tiny design tokens ───────────────────────────────────────────────────────
@@ -251,15 +255,39 @@ function LeaderboardView({
   clusters,
   loading,
   onSelect,
+  showNoNearby,
 }: {
   clusters: CollisionCluster[];
   loading: boolean;
   onSelect: (c: CollisionCluster) => void;
+  showNoNearby: boolean;
 }) {
   const maxCount = clusters[0]?.count ?? 1;
 
   return (
     <div style={{ flex: 1, overflowY: "auto" as const, padding: "20px 20px 0" }}>
+
+      {/* No-nearby-cluster banner — auto-dismissed by parent timer */}
+      {showNoNearby && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "flex-start",
+            gap: "10px",
+            background: "rgba(244,162,97,0.08)",
+            border: `1px solid rgba(244,162,97,0.25)`,
+            borderRadius: "7px",
+            padding: "10px 14px",
+            marginBottom: "16px",
+          }}
+        >
+          <span style={{ color: C.amber, fontSize: "15px", lineHeight: 1 }}>◎</span>
+          <p style={{ ...SANS, fontSize: "12px", color: C.amber, margin: 0, lineHeight: 1.5 }}>
+            No high-risk zones found near you.
+          </p>
+        </div>
+      )}
+
       <SectionLabel>Top Risk Zones</SectionLabel>
 
       {loading ? (
@@ -419,12 +447,18 @@ function AnalysisView({
   cluster,
   onBack,
   onSimulate,
+  proximityMeters,
 }: {
   cluster: CollisionCluster;
   onBack: () => void;
   onSimulate: () => void;
+  /** Distance in metres from the user's location — shown as amber banner when set. */
+  proximityMeters?: number | null;
 }) {
   const [barsReady, setBarsReady] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const analysis = analyze(cluster);
   const total = cluster.count;
 
@@ -434,12 +468,70 @@ function AnalysisView({
     return () => clearTimeout(t);
   }, [cluster.id]);
 
+  // Reset copied state on cluster change and clean up timer on unmount
+  useEffect(() => {
+    setCopied(false);
+    return () => {
+      if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
+    };
+  }, [cluster.id]);
+
+  const buildReport = (): string => {
+    const date = new Date().toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+
+    const lines: string[] = [
+      "SAFEROUTE KW — INTERSECTION SAFETY REPORT",
+      `Generated: ${date}`,
+      `INTERSECTION: ${cluster.name}`,
+      `RISK SCORE: ${cluster.riskScore}/10`,
+      `TOTAL COLLISIONS (2015–2022): ${cluster.count}`,
+      `PEAK TIME: ${cluster.peakTime}`,
+      "COLLISION BREAKDOWN",
+      `Rear-end: ${cluster.types.rearEnd}`,
+      `Turning: ${cluster.types.turning}`,
+      `Pedestrian: ${cluster.types.pedestrian}`,
+      `Cyclist: ${cluster.types.cyclist}`,
+      `Angle: ${cluster.types.angle}`,
+      "WHY IT'S DANGEROUS",
+      analysis.whyDangerous,
+      "RECOMMENDED FIXES",
+      "",
+    ];
+
+    for (const fix of analysis.fixes) {
+      lines.push(`${fix.intervention} — ${fix.impact} IMPACT / ${fix.cost} COST`);
+      lines.push(fix.reason);
+      lines.push("");
+    }
+
+    lines.push("Data source: City of Kitchener Open Data");
+    lines.push("SafeRoute KW — saferouting.vercel.app");
+
+    return lines.join("\n");
+  };
+
+  const handleExport = () => {
+    const text = buildReport();
+    navigator.clipboard.writeText(text).then(() => {
+      if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
+      setCopied(true);
+      copiedTimerRef.current = setTimeout(() => setCopied(false), 3_000);
+    }).catch(() => {
+      // Clipboard unavailable — silently ignore
+    });
+  };
+
   const typeRows: { label: string; key: keyof CollisionCluster["types"]; color: string }[] = [
-    { label: "Rear-end", key: "rearEnd", color: C.red },
-    { label: "Turning", key: "turning", color: C.amber },
+    { label: "Rear-end",   key: "rearEnd",    color: C.red },
+    { label: "Turning",    key: "turning",    color: C.amber },
     { label: "Pedestrian", key: "pedestrian", color: C.orange },
-    { label: "Angle", key: "angle", color: "#A78BFA" },
-    { label: "Other", key: "other", color: C.dim },
+    { label: "Cyclist",    key: "cyclist",    color: "#60A5FA" },
+    { label: "Angle",      key: "angle",      color: "#A78BFA" },
+    { label: "Other",      key: "other",      color: C.dim },
   ];
 
   const riskColor =
@@ -476,6 +568,28 @@ function AnalysisView({
       >
         ← Back
       </button>
+
+      {/* Proximity banner — shown only when arriving via "My Risk Score" */}
+      {proximityMeters != null && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "10px",
+            background: "rgba(244,162,97,0.08)",
+            border: `1px solid rgba(244,162,97,0.28)`,
+            borderRadius: "7px",
+            padding: "10px 14px",
+            marginBottom: "14px",
+          }}
+        >
+          <span style={{ color: C.amber, fontSize: "15px", lineHeight: 1, flexShrink: 0 }}>◎</span>
+          <span style={{ ...SANS, fontSize: "12px", color: C.amber, lineHeight: 1.45 }}>
+            Nearest danger zone to you&nbsp;—&nbsp;
+            <strong style={{ fontWeight: 700 }}>{proximityMeters} metres</strong> away
+          </span>
+        </div>
+      )}
 
       {/* Cluster header */}
       <div style={{ marginBottom: "16px" }}>
@@ -583,6 +697,42 @@ function AnalysisView({
       >
         ▶ SIMULATE FIX
       </button>
+
+      {/* Export report button */}
+      <button
+        onClick={handleExport}
+        style={{
+          ...MONO,
+          fontSize: "12px",
+          fontWeight: 600,
+          letterSpacing: "0.06em",
+          color: copied ? C.teal : C.muted,
+          background: C.bgElevated,
+          border: `1px solid ${copied ? C.teal : C.border}`,
+          borderRadius: "6px",
+          padding: "10px 0",
+          cursor: "pointer",
+          width: "100%",
+          textAlign: "center" as const,
+          marginTop: "8px",
+          transition: "color 0.2s ease, border-color 0.2s ease",
+        }}
+        onMouseEnter={(e) => {
+          if (!copied) {
+            (e.currentTarget as HTMLButtonElement).style.color = C.text;
+            (e.currentTarget as HTMLButtonElement).style.borderColor = C.dim;
+          }
+        }}
+        onMouseLeave={(e) => {
+          if (!copied) {
+            (e.currentTarget as HTMLButtonElement).style.color = C.muted;
+            (e.currentTarget as HTMLButtonElement).style.borderColor = C.border;
+          }
+        }}
+      >
+        {copied ? "✓ REPORT COPIED TO CLIPBOARD" : "↗ EXPORT REPORT"}
+      </button>
+
     </div>
   );
 }
@@ -865,10 +1015,28 @@ export default function Sidebar({
   selectedCluster,
   leaderboardClusters,
   loadingClusters,
+  locationMeta,
+  noNearbyCluster = 0,
 }: SidebarProps) {
   const [view, setView] = useState<View>("leaderboard");
   const [fading, setFading] = useState(false);
   const [currentCluster, setCurrentCluster] = useState<CollisionCluster | null>(null);
+
+  // ── "No nearby cluster" toast — auto-dismisses after 6 s ──────────────
+  const [showNoNearby, setShowNoNearby] = useState(false);
+  const noNearbyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (noNearbyTimerRef.current) clearTimeout(noNearbyTimerRef.current);
+    if (noNearbyCluster === 0) {
+      setShowNoNearby(false);
+      return;
+    }
+    setShowNoNearby(true);
+    noNearbyTimerRef.current = setTimeout(() => setShowNoNearby(false), 6_000);
+    return () => {
+      if (noNearbyTimerRef.current) clearTimeout(noNearbyTimerRef.current);
+    };
+  }, [noNearbyCluster]);
 
   // Simulation result — computed from currentCluster, never stale
   const simResult: SimulationResult | null = currentCluster
@@ -928,6 +1096,7 @@ export default function Sidebar({
             clusters={leaderboardClusters}
             loading={loadingClusters}
             onSelect={handleLeaderboardSelect}
+            showNoNearby={showNoNearby}
           />
         )}
 
@@ -936,6 +1105,11 @@ export default function Sidebar({
             cluster={currentCluster}
             onBack={() => navigateTo("leaderboard")}
             onSimulate={() => navigateTo("simulate")}
+            proximityMeters={
+              locationMeta?.clusterId === currentCluster.id
+                ? locationMeta.distanceMeters
+                : null
+            }
           />
         )}
 

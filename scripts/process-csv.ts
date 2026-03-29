@@ -40,6 +40,7 @@ interface WorkingCluster {
     rearEnd: number;
     turning: number;
     pedestrian: number;
+    cyclist: number;
     angle: number;
     other: number;
   };
@@ -63,6 +64,7 @@ interface CollisionCluster {
     rearEnd: number;
     turning: number;
     pedestrian: number;
+    cyclist: number;
     angle: number;
     other: number;
   };
@@ -135,6 +137,12 @@ function parseIntersectionName(notes: string): string {
     .join(" & ");
 }
 
+/** Robustly parse a boolean field that may be "True", "true", "TRUE", "1", "yes" */
+function parseBool(value: string): boolean {
+  const v = (value ?? "").trim().toLowerCase();
+  return v === "true" || v === "1" || v === "yes";
+}
+
 /** Map CLASSIFICATIONOFACCIDENT string to a severity key */
 function parseSeverity(classification: string): "fatal" | "injury" | "pdo" {
   const c = classification.trim().toLowerCase();
@@ -150,13 +158,15 @@ function parseSeverity(classification: string): "fatal" | "injury" | "pdo" {
  * Map collision type.
  * Pedestrian/cyclist involvement takes precedence over impact type.
  * INITIALIMPACTTYPE has descriptive values used for the other categories.
+ * Cyclists are tracked separately from pedestrians.
  */
 function parseCollisionType(
   impactType: string,
   pedestrianInvolved: boolean,
   cyclistInvolved: boolean
-): "rearEnd" | "turning" | "pedestrian" | "angle" | "other" {
-  if (pedestrianInvolved || cyclistInvolved) return "pedestrian";
+): "rearEnd" | "turning" | "pedestrian" | "cyclist" | "angle" | "other" {
+  if (pedestrianInvolved) return "pedestrian";
+  if (cyclistInvolved) return "cyclist";
   const t = impactType.trim().toLowerCase();
   if (t.includes("rear end") || t === "approaching") return "rearEnd";
   if (t.includes("turning")) return "turning";
@@ -201,9 +211,10 @@ function computeRiskScore(c: WorkingCluster): number {
   // Severity (max 4 pts)
   score += Math.min(c.severity.fatal * 4, 2);
   score += Math.min(c.severity.injury * 0.2, 2);
-  // Pedestrian involvement (max 2 pts)
-  if (c.types.pedestrian > 0) {
-    score += Math.min(c.types.pedestrian * 0.5, 2);
+  // Vulnerable road user involvement (pedestrian + cyclist, max 2 pts)
+  const vulnerable = c.types.pedestrian + c.types.cyclist;
+  if (vulnerable > 0) {
+    score += Math.min(vulnerable * 0.5, 2);
   }
   return Math.min(Math.round(score), 10);
 }
@@ -267,8 +278,8 @@ function main() {
 
     const hour = parseInt(row.ACCIDENT_HOUR ?? "0", 10);
     const severity = parseSeverity(row.CLASSIFICATIONOFACCIDENT ?? "");
-    const pedestrian = (row.PEDESTRIANINVOLVED ?? "").trim().toLowerCase() === "true";
-    const cyclist = (row.CYCLISTINVOLVED ?? "").trim().toLowerCase() === "true";
+    const pedestrian = parseBool(row.PEDESTRIANINVOLVED ?? "");
+    const cyclist = parseBool(row.CYCLISTINVOLVED ?? "");
     const collisionType = parseCollisionType(
       row.INITIALIMPACTTYPE ?? "",
       pedestrian,
@@ -311,7 +322,7 @@ function main() {
         count: 1,
         _sumLat: lat,
         _sumLng: lng,
-        types: { rearEnd: 0, turning: 0, pedestrian: 0, angle: 0, other: 0 },
+        types: { rearEnd: 0, turning: 0, pedestrian: 0, cyclist: 0, angle: 0, other: 0 },
         severity: { fatal: 0, injury: 0, pdo: 0 },
         _hours: [isNaN(hour) ? 0 : hour],
         peakTime: "",

@@ -1,30 +1,163 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import type mapboxgl from "mapbox-gl";
 import type { CollisionCluster } from "@/lib/types";
+
+type MapMode = "clusters" | "heatmap";
+
+// ── Geo helpers ────────────────────────────────────────────────────────────────
+
+function haversineMeters(
+  lat1: number, lng1: number,
+  lat2: number, lng2: number,
+): number {
+  const R = 6_371_000;
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function findNearestCluster(
+  clusters: CollisionCluster[],
+  lat: number,
+  lng: number,
+  maxMeters: number,
+): { cluster: CollisionCluster; distanceMeters: number } | null {
+  let nearest: CollisionCluster | null = null;
+  let nearestDist = Infinity;
+  for (const c of clusters) {
+    const d = haversineMeters(lat, lng, c.lat, c.lng);
+    if (d <= maxMeters && d < nearestDist) {
+      nearest = c;
+      nearestDist = d;
+    }
+  }
+  return nearest
+    ? { cluster: nearest, distanceMeters: Math.round(nearestDist) }
+    : null;
+}
+type CollisionFilter = "all" | "pedestrian" | "cyclist" | "rearEnd" | "angle";
+
+interface FilterOption {
+  value: CollisionFilter;
+  label: string;
+}
+
+const FILTER_OPTIONS: FilterOption[] = [
+  { value: "all", label: "All" },
+  { value: "pedestrian", label: "Pedestrian" },
+  { value: "cyclist", label: "Cyclist" },
+  { value: "rearEnd", label: "Rear-end" },
+  { value: "angle", label: "Angle" },
+];
+
+const CLUSTER_LAYERS = [
+  "super-clusters",
+  "super-cluster-count",
+  "unclustered-point",
+];
+
+function buildGeojson(clusters: CollisionCluster[]): GeoJSON.FeatureCollection {
+  return {
+    type: "FeatureCollection",
+    features: clusters.map((c) => ({
+      type: "Feature",
+      geometry: { type: "Point", coordinates: [c.lng, c.lat] },
+      properties: {
+        id: c.id,
+        name: c.name,
+        lat: c.lat,
+        lng: c.lng,
+        count: c.count,
+        riskScore: c.riskScore,
+        peakTime: c.peakTime,
+        // Nested objects must be stringified
+        types: JSON.stringify(c.types),
+        severity: JSON.stringify(c.severity),
+      },
+    })),
+  };
+}
+
+function applyFilter(
+  clusters: CollisionCluster[],
+  filter: CollisionFilter
+): CollisionCluster[] {
+  if (filter === "all") return clusters;
+  return clusters.filter((c) => {
+    switch (filter) {
+      case "pedestrian": return c.types.pedestrian > 0;
+      case "cyclist":    return c.types.cyclist > 0;
+      case "rearEnd":    return c.types.rearEnd > 0;
+      case "angle":      return c.types.angle > 0;
+    }
+  });
+}
 
 interface MapProps {
   onSelect: (cluster: CollisionCluster) => void;
+  onNearbyResult: (cluster: CollisionCluster | null, distanceMeters: number) => void;
 }
 
-export default function Map({ onSelect }: MapProps) {
+export default function Map({ onSelect, onNearbyResult }: MapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   // Stable ref so event listeners always call the latest onSelect without
   // needing to teardown and recreate the map on every render.
   const onSelectRef = useRef(onSelect);
+  const mapRef = useRef<import("mapbox-gl").Map | null>(null);
+  const pulseMarkersRef = useRef<import("mapbox-gl").Marker[]>([]);
+  const allClustersRef = useRef<CollisionCluster[]>([]);
+
+  const [mode, setMode] = useState<MapMode>("clusters");
+  const [filter, setFilter] = useState<CollisionFilter>("all");
+  const [mapReady, setMapReady] = useState(false);
+  const [geoLoading, setGeoLoading] = useState(false);
+
+  const onNearbyResultRef = useRef(onNearbyResult);
+  useEffect(() => { onNearbyResultRef.current = onNearbyResult; }, [onNearbyResult]);
+
+  const handleMyRiskScore = () => {
+    if (!navigator.geolocation || allClustersRef.current.length === 0) return;
+    setGeoLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setGeoLoading(false);
+        const { latitude: lat, longitude: lng } = pos.coords;
+        const result = findNearestCluster(allClustersRef.current, lat, lng, 1000);
+        if (result) {
+          mapRef.current?.flyTo({
+            center: [result.cluster.lng, result.cluster.lat],
+            zoom: Math.max(mapRef.current.getZoom(), 14),
+            speed: 0.85,
+            curve: 1.4,
+          });
+        }
+        onNearbyResultRef.current(result?.cluster ?? null, result?.distanceMeters ?? 0);
+      },
+      () => {
+        // Permission denied or unavailable — silently abort
+        setGeoLoading(false);
+      },
+      { timeout: 10_000, maximumAge: 60_000 },
+    );
+  };
+
   useEffect(() => {
     onSelectRef.current = onSelect;
   }, [onSelect]);
 
+  // ── One-time map initialisation ─────────────────────────────────────────
   useEffect(() => {
     if (!containerRef.current) return;
 
-    let mapInstance: import("mapbox-gl").Map | null = null;
-    const pulseMarkers: import("mapbox-gl").Marker[] = [];
     let destroyed = false;
 
     const init = async () => {
-      // Dynamic import keeps mapbox-gl out of the SSR bundle
       const mapboxgl = (await import("mapbox-gl")).default;
 
       if (destroyed || !containerRef.current) return;
@@ -45,7 +178,6 @@ export default function Map({ onSelect }: MapProps) {
       } catch (err) {
         console.warn("[SafeRoute] /api/clusters failed, using fallback", err);
         try {
-          // collisions-fallback.json must be in public/data/ for direct fetch
           const res = await fetch("/data/collisions-fallback.json");
           clusters = await res.json();
         } catch {
@@ -55,6 +187,8 @@ export default function Map({ onSelect }: MapProps) {
 
       if (destroyed || !containerRef.current) return;
 
+      allClustersRef.current = clusters;
+
       // ── Create map ──────────────────────────────────────────────────────
       const map = new mapboxgl.Map({
         container: containerRef.current,
@@ -63,7 +197,7 @@ export default function Map({ onSelect }: MapProps) {
         zoom: 12,
         attributionControl: false,
       });
-      mapInstance = map;
+      mapRef.current = map;
 
       map.addControl(
         new mapboxgl.AttributionControl({ compact: true }),
@@ -78,43 +212,24 @@ export default function Map({ onSelect }: MapProps) {
       map.on("load", () => {
         if (destroyed) return;
 
-        // Build GeoJSON — store complex objects as JSON strings because
-        // Mapbox serialises feature properties to primitives only.
-        const geojson: GeoJSON.FeatureCollection = {
-          type: "FeatureCollection",
-          features: clusters.map((c) => ({
-            type: "Feature",
-            geometry: {
-              type: "Point",
-              coordinates: [c.lng, c.lat],
-            },
-            properties: {
-              id: c.id,
-              name: c.name,
-              lat: c.lat,
-              lng: c.lng,
-              count: c.count,
-              riskScore: c.riskScore,
-              peakTime: c.peakTime,
-              // Nested objects must be stringified
-              types: JSON.stringify(c.types),
-              severity: JSON.stringify(c.severity),
-            },
-          })),
-        };
+        const geojson = buildGeojson(clusters);
 
-        // ── Source with Mapbox clustering ─────────────────────────────────
+        // ── Source with Mapbox clustering (clusters view) ─────────────────
         map.addSource("clusters", {
           type: "geojson",
           data: geojson,
           cluster: true,
-          clusterMaxZoom: 13, // Above zoom 13 every point is unclustered
+          clusterMaxZoom: 13,
           clusterRadius: 50,
         });
 
+        // ── Separate non-clustered source for heatmap ─────────────────────
+        map.addSource("heatmap-source", {
+          type: "geojson",
+          data: geojson,
+        });
+
         // ── Layer: Mapbox aggregated super-clusters ────────────────────────
-        // Colour step is based on how many of our pre-processed clusters
-        // Mapbox has merged together at this zoom level.
         map.addLayer({
           id: "super-clusters",
           type: "circle",
@@ -162,7 +277,6 @@ export default function Map({ onSelect }: MapProps) {
         });
 
         // ── Layer: individual pre-processed collision cluster dots ─────────
-        // Colour and size are based on the cluster's own collision `count`.
         map.addLayer({
           id: "unclustered-point",
           type: "circle",
@@ -191,6 +305,47 @@ export default function Map({ onSelect }: MapProps) {
             "circle-stroke-width": 1,
             "circle-stroke-color": "#0A0C0F",
             "circle-stroke-opacity": 0.5,
+          },
+        });
+
+        // ── Layer: heatmap (initially hidden) ─────────────────────────────
+        map.addLayer({
+          id: "collision-heatmap",
+          type: "heatmap",
+          source: "heatmap-source",
+          layout: { visibility: "none" },
+          paint: {
+            "heatmap-weight": [
+              "interpolate",
+              ["linear"],
+              ["get", "count"],
+              0, 0,
+              50, 1,
+            ],
+            "heatmap-intensity": [
+              "interpolate",
+              ["linear"],
+              ["zoom"],
+              10, 0.8,
+              15, 2,
+            ],
+            "heatmap-radius": [
+              "interpolate",
+              ["linear"],
+              ["zoom"],
+              10, 20,
+              15, 40,
+            ],
+            "heatmap-color": [
+              "interpolate",
+              ["linear"],
+              ["heatmap-density"],
+              0, "rgba(0,0,0,0)",
+              0.35, "rgba(244,162,97,0.6)",
+              0.65, "#F4A261",
+              1, "#E63946",
+            ],
+            "heatmap-opacity": 0.85,
           },
         });
 
@@ -270,7 +425,9 @@ export default function Map({ onSelect }: MapProps) {
           if (!feat) return;
           const clusterId = (feat.properties as Record<string, unknown>)
             .cluster_id as number;
-          const source = map.getSource("clusters") as mapboxgl.GeoJSONSource;
+          const source = map.getSource(
+            "clusters"
+          ) as mapboxgl.GeoJSONSource;
           source.getClusterExpansionZoom(clusterId, (err, zoom) => {
             if (err || zoom == null) return;
             map.flyTo({
@@ -284,7 +441,6 @@ export default function Map({ onSelect }: MapProps) {
           });
         });
 
-        // Cursor feedback on super-clusters
         map.on("mouseenter", "super-clusters", () => {
           map.getCanvas().style.cursor = "pointer";
         });
@@ -293,8 +449,6 @@ export default function Map({ onSelect }: MapProps) {
         });
 
         // ── CSS pulse markers for riskScore >= 8 ─────────────────────────
-        // Only 6 clusters qualify. HTML markers give us real CSS animations
-        // that WebGL layers can't provide natively.
         const highRisk = clusters.filter((c) => c.riskScore >= 8);
         for (const c of highRisk) {
           const el = document.createElement("div");
@@ -308,8 +462,10 @@ export default function Map({ onSelect }: MapProps) {
             .setLngLat([c.lng, c.lat])
             .addTo(map);
 
-          pulseMarkers.push(marker);
+          pulseMarkersRef.current.push(marker);
         }
+
+        setMapReady(true);
       });
     };
 
@@ -317,16 +473,111 @@ export default function Map({ onSelect }: MapProps) {
 
     return () => {
       destroyed = true;
-      pulseMarkers.forEach((m) => m.remove());
-      mapInstance?.remove();
+      pulseMarkersRef.current.forEach((m) => m.remove());
+      pulseMarkersRef.current = [];
+      mapRef.current?.remove();
+      mapRef.current = null;
+      setMapReady(false);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // ── Mode + filter: toggle layers and update source data ─────────────────
+  // Single effect handles both so the two concerns always stay in sync.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
+
+    const showClusters = mode === "clusters";
+
+    // Toggle cluster layers
+    CLUSTER_LAYERS.forEach((id) => {
+      if (map.getLayer(id)) {
+        map.setLayoutProperty(
+          id,
+          "visibility",
+          showClusters ? "visible" : "none"
+        );
+      }
+    });
+
+    // Toggle heatmap layer
+    if (map.getLayer("collision-heatmap")) {
+      map.setLayoutProperty(
+        "collision-heatmap",
+        "visibility",
+        showClusters ? "none" : "visible"
+      );
+    }
+
+    // Filter source data for both cluster and heatmap sources
+    const filtered = applyFilter(allClustersRef.current, filter);
+    const filteredIds = new Set(filtered.map((c) => c.id));
+    const geojson = buildGeojson(filtered);
+
+    (map.getSource("clusters") as mapboxgl.GeoJSONSource)?.setData(geojson);
+    (map.getSource("heatmap-source") as mapboxgl.GeoJSONSource)?.setData(geojson);
+
+    // Pulse markers: visible only in cluster mode and when cluster passes filter
+    pulseMarkersRef.current.forEach((m) => {
+      const el = m.getElement() as HTMLElement;
+      const id = el.getAttribute("data-cluster-id");
+      el.style.display =
+        showClusters && (!id || filteredIds.has(id)) ? "" : "none";
+    });
+  }, [mode, filter, mapReady]);
+
   return (
-    <div
-      ref={containerRef}
-      style={{ width: "100%", height: "100%", display: "block" }}
-    />
+    <div style={{ position: "relative", width: "100%", height: "100%" }}>
+      <div
+        ref={containerRef}
+        style={{ width: "100%", height: "100%", display: "block" }}
+      />
+
+      {/* ── Map controls overlay ────────────────────────────────────────── */}
+      <div className="map-controls">
+
+        {/* Row 1: mode toggle */}
+        <div className="map-mode-toggle">
+          <button
+            className={`map-mode-btn${mode === "clusters" ? " map-mode-btn--active" : ""}`}
+            onClick={() => setMode("clusters")}
+          >
+            Clusters
+          </button>
+          <button
+            className={`map-mode-btn${mode === "heatmap" ? " map-mode-btn--active" : ""}`}
+            onClick={() => setMode("heatmap")}
+          >
+            Heatmap
+          </button>
+        </div>
+
+        {/* Row 2: filter pills — clusters mode only */}
+        {mode === "clusters" && (
+          <div className="map-filter-pills">
+            {FILTER_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                className={`map-filter-pill${filter === opt.value ? " map-filter-pill--active" : ""}`}
+                onClick={() => setFilter(opt.value)}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Row 3: My Risk Score */}
+        <button
+          className={`map-geo-btn${geoLoading ? " map-geo-btn--loading" : ""}`}
+          onClick={handleMyRiskScore}
+          disabled={geoLoading}
+        >
+          {geoLoading ? "Locating…" : "◎ My Risk Score"}
+        </button>
+
+      </div>
+    </div>
   );
 }

@@ -9,6 +9,7 @@
       "rearEnd": 18,
       "turning": 12,
       "pedestrian": 8,
+      "cyclist": 0,
       "angle": 5,
       "other": 4
     },
@@ -30,6 +31,7 @@
       "rearEnd": 15,
       "turning": 10,
       "pedestrian": 2,
+      "cyclist": 0,
       "angle": 8,
       "other": 3
     },
@@ -51,6 +53,7 @@
       "rearEnd": 11,
       "turning": 8,
       "pedestrian": 1,
+      "cyclist": 0,
       "angle": 5,
       "other": 3
     },
@@ -72,6 +75,7 @@
       "rearEnd": 8,
       "turning": 7,
       "pedestrian": 4,
+      "cyclist": 0,
       "angle": 2,
       "other": 1
     },
@@ -93,6 +97,7 @@
       "rearEnd": 8,
       "turning": 5,
       "pedestrian": 2,
+      "cyclist": 0,
       "angle": 2,
       "other": 1
     },
@@ -114,6 +119,7 @@
       "rearEnd": 5,
       "turning": 3,
       "pedestrian": 4,
+      "cyclist": 0,
       "angle": 2,
       "other": 0
     },
@@ -135,6 +141,7 @@
       "rearEnd": 4,
       "turning": 3,
       "pedestrian": 2,
+      "cyclist": 0,
       "angle": 1,
       "other": 1
     },
@@ -156,6 +163,7 @@
       "rearEnd": 4,
       "turning": 2,
       "pedestrian": 1,
+      "cyclist": 0,
       "angle": 1,
       "other": 1
     },

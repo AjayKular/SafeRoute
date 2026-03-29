@@ -139,6 +139,7 @@ function getDominantType(cluster: CollisionCluster): DominantType {
     rearEnd: "rearEnd",
     turning: "turning",
     pedestrian: "pedestrian",
+    cyclist: "pedestrian",
     angle: "angle",
     other: "highVolume",
   };
