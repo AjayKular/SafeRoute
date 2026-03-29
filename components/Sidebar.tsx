@@ -8,7 +8,7 @@ import {
   type CSSProperties,
 } from "react";
 import type { CollisionCluster } from "@/lib/types";
-import { analyze, type Fix, type ImpactLevel } from "@/lib/analyze";
+import { analyze, fixDescriptions, type Fix, type ImpactLevel } from "@/lib/analyze";
 import { simulate, type SimulationResult } from "@/lib/simulate";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -189,14 +189,12 @@ function BreakdownRow({
 // ─── Score bar row (simulate panel) ──────────────────────────────────────────
 
 function ScoreBar({
-  label,
   value,
   max,
   color,
   animate,
   delay,
 }: {
-  label: string;
   value: number;
   max: number;
   color: string;
@@ -213,38 +211,24 @@ function ScoreBar({
   const width = fired ? `${(value / max) * 100}%` : "0%";
 
   return (
-    <div style={{ marginBottom: "6px" }}>
+    <div
+      style={{
+        height: "6px",
+        background: C.bgElevated,
+        borderRadius: "999px",
+        overflow: "hidden",
+        marginBottom: "6px",
+      }}
+    >
       <div
         style={{
-          display: "flex",
-          justifyContent: "space-between",
-          marginBottom: "5px",
-          alignItems: "baseline",
-        }}
-      >
-        <span style={{ ...SANS, fontSize: "12px", color: C.muted }}>{label}</span>
-        <span style={{ ...MONO, fontSize: "13px", color }}>
-          {value}/{max}
-        </span>
-      </div>
-      <div
-        style={{
-          height: "6px",
-          background: C.bgElevated,
+          height: "100%",
+          width,
+          background: color,
           borderRadius: "999px",
-          overflow: "hidden",
+          transition: `width 0.9s cubic-bezier(0.16, 1, 0.3, 1) ${delay}ms`,
         }}
-      >
-        <div
-          style={{
-            height: "100%",
-            width,
-            background: color,
-            borderRadius: "999px",
-            transition: `width 0.9s cubic-bezier(0.16, 1, 0.3, 1) ${delay}ms`,
-          }}
-        />
-      </div>
+      />
     </div>
   );
 }
@@ -810,7 +794,7 @@ function SimulateView({
 
   const { before, after, topFix, reductionPct } = result;
 
-  // Animated numbers
+  // Animated numbers (safetyScore is already display-ready from simulate.ts)
   const beforeSafety = useCountUp(before.safetyScore, 900, active);
   const afterSafety = useCountUp(after.safetyScore, 1100, active);
   const beforeCPY = useCountUp(before.collisionsPerYear, 900, active);
@@ -877,18 +861,32 @@ function SimulateView({
           fontSize: "15px",
           fontWeight: 700,
           color: C.text,
-          margin: "0 0 4px",
+          margin: "0 0 6px",
           lineHeight: 1.3,
         }}
       >
         {topFix}
       </h3>
+      {fixDescriptions[topFix] && (
+        <p
+          style={{
+            ...SANS,
+            fontSize: "12px",
+            color: C.muted,
+            margin: "0 0 10px",
+            lineHeight: 1.6,
+          }}
+        >
+          {fixDescriptions[topFix]}
+        </p>
+      )}
       <p
         style={{
-          ...SANS,
-          fontSize: "12px",
-          color: C.muted,
+          ...MONO,
+          fontSize: "11px",
+          color: C.dim,
           margin: "0 0 18px",
+          letterSpacing: "0.03em",
         }}
       >
         {cluster.name}
@@ -907,7 +905,7 @@ function SimulateView({
               {beforeSafety}/10
             </span>
           </div>
-          <ScoreBar value={before.safetyScore} max={10} color={C.red} animate={active} delay={0} label="" />
+          <ScoreBar value={before.safetyScore} max={10} color={C.red} animate={active} delay={0} />
         </div>
 
         <div>
@@ -924,7 +922,7 @@ function SimulateView({
               )}
             </div>
           </div>
-          <ScoreBar value={after.safetyScore} max={10} color={C.teal} animate={active} delay={150} label="" />
+          <ScoreBar value={after.safetyScore} max={10} color={C.teal} animate={active} delay={150} />
         </div>
       </div>
 
@@ -969,7 +967,7 @@ function SimulateView({
               {beforeFlow}/10
             </span>
           </div>
-          <ScoreBar value={before.trafficFlow} max={10} color={C.muted} animate={active} delay={0} label="" />
+          <ScoreBar value={before.trafficFlow} max={10} color={C.muted} animate={active} delay={0} />
         </div>
 
         <div>
@@ -986,7 +984,7 @@ function SimulateView({
               )}
             </div>
           </div>
-          <ScoreBar value={after.trafficFlow} max={10} color={C.teal} animate={active} delay={300} label="" />
+          <ScoreBar value={after.trafficFlow} max={10} color={C.teal} animate={active} delay={300} />
         </div>
       </div>
 

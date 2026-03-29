@@ -41,19 +41,17 @@ function computeFlowScore(cluster: CollisionCluster): number {
 }
 
 /**
- * Improvement factor 0.4–0.7 based on the top fix's achievability.
- * HIGH impact + LOW cost = most gain, HIGH impact + HIGH cost = less gain
- * (harder to implement, more political resistance).
+ * Improvement factor based on the top fix's impact/cost profile.
  */
 function getImprovementFactor(cluster: CollisionCluster): number {
   const { fixes } = analyze(cluster);
-  if (fixes.length === 0) return 0.5;
+  if (fixes.length === 0) return 0.55;
   const top = fixes[0];
-  if (top.impact === "HIGH" && top.cost === "LOW") return 0.65;
-  if (top.impact === "HIGH" && top.cost === "MEDIUM") return 0.55;
-  if (top.impact === "HIGH" && top.cost === "HIGH") return 0.48;
-  if (top.impact === "MEDIUM") return 0.43;
-  return 0.40;
+  if (top.impact === "HIGH" && top.cost === "LOW") return 0.75;
+  if (top.impact === "HIGH" && top.cost === "MEDIUM") return 0.65;
+  if (top.impact === "HIGH" && top.cost === "HIGH") return 0.55;
+  if (top.impact === "MEDIUM") return 0.45;
+  return 0.45;
 }
 
 // ---------------------------------------------------------------------------
@@ -64,8 +62,9 @@ function getImprovementFactor(cluster: CollisionCluster): number {
 export function simulate(cluster: CollisionCluster): SimulationResult {
   const { fixes } = analyze(cluster);
 
+  // safetyScore is stored display-ready: 0 = most dangerous, 10 = safest
   const before: SimulationBefore = {
-    safetyScore: cluster.riskScore,
+    safetyScore: 10 - cluster.riskScore,
     trafficFlow: computeFlowScore(cluster),
     collisionsPerYear: Math.round(cluster.count / 5),
   };
@@ -74,8 +73,11 @@ export function simulate(cluster: CollisionCluster): SimulationResult {
 
   const after: SimulationAfter = {
     safetyScore: Math.min(
-      Math.round(before.safetyScore + (10 - before.safetyScore) * improvement),
-      9
+      Math.max(
+        Math.round(before.safetyScore + (10 - before.safetyScore) * improvement),
+        before.safetyScore + 3,
+      ),
+      9,
     ),
     trafficFlow: Math.min(before.trafficFlow + 2, 10),
     collisionsPerYear: Math.round(

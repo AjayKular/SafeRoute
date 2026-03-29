@@ -28,18 +28,21 @@ function findNearestCluster(
   lng: number,
   maxMeters: number,
 ): { cluster: CollisionCluster; distanceMeters: number } | null {
-  let nearest: CollisionCluster | null = null;
-  let nearestDist = Infinity;
-  for (const c of clusters) {
-    const d = haversineMeters(lat, lng, c.lat, c.lng);
-    if (d <= maxMeters && d < nearestDist) {
-      nearest = c;
-      nearestDist = d;
-    }
-  }
-  return nearest
-    ? { cluster: nearest, distanceMeters: Math.round(nearestDist) }
-    : null;
+  // Collect every cluster within range, then pick the highest riskScore.
+  // Ties in riskScore are broken by proximity.
+  const candidates = clusters
+    .map((c) => ({ cluster: c, distanceMeters: haversineMeters(lat, lng, c.lat, c.lng) }))
+    .filter(({ distanceMeters }) => distanceMeters <= maxMeters);
+
+  if (candidates.length === 0) return null;
+
+  candidates.sort((a, b) =>
+    b.cluster.riskScore - a.cluster.riskScore ||
+    a.distanceMeters - b.distanceMeters
+  );
+
+  const { cluster, distanceMeters } = candidates[0];
+  return { cluster, distanceMeters: Math.round(distanceMeters) };
 }
 type CollisionFilter = "all" | "pedestrian" | "cyclist" | "rearEnd" | "angle";
 
@@ -110,7 +113,6 @@ export default function Map({ onSelect, onNearbyResult }: MapProps) {
   // needing to teardown and recreate the map on every render.
   const onSelectRef = useRef(onSelect);
   const mapRef = useRef<import("mapbox-gl").Map | null>(null);
-  const pulseMarkersRef = useRef<import("mapbox-gl").Marker[]>([]);
   const allClustersRef = useRef<CollisionCluster[]>([]);
 
   const [mode, setMode] = useState<MapMode>("clusters");
@@ -128,7 +130,7 @@ export default function Map({ onSelect, onNearbyResult }: MapProps) {
       (pos) => {
         setGeoLoading(false);
         const { latitude: lat, longitude: lng } = pos.coords;
-        const result = findNearestCluster(allClustersRef.current, lat, lng, 1000);
+        const result = findNearestCluster(allClustersRef.current, lat, lng, 5000);
         if (result) {
           mapRef.current?.flyTo({
             center: [result.cluster.lng, result.cluster.lat],
@@ -448,23 +450,6 @@ export default function Map({ onSelect, onNearbyResult }: MapProps) {
           map.getCanvas().style.cursor = "";
         });
 
-        // ── CSS pulse markers for riskScore >= 8 ─────────────────────────
-        const highRisk = clusters.filter((c) => c.riskScore >= 8);
-        for (const c of highRisk) {
-          const el = document.createElement("div");
-          el.className = "pulse-marker";
-          el.setAttribute("data-cluster-id", c.id);
-
-          const marker = new mapboxgl.Marker({
-            element: el,
-            anchor: "center",
-          })
-            .setLngLat([c.lng, c.lat])
-            .addTo(map);
-
-          pulseMarkersRef.current.push(marker);
-        }
-
         setMapReady(true);
       });
     };
@@ -473,8 +458,6 @@ export default function Map({ onSelect, onNearbyResult }: MapProps) {
 
     return () => {
       destroyed = true;
-      pulseMarkersRef.current.forEach((m) => m.remove());
-      pulseMarkersRef.current = [];
       mapRef.current?.remove();
       mapRef.current = null;
       setMapReady(false);
@@ -510,21 +493,12 @@ export default function Map({ onSelect, onNearbyResult }: MapProps) {
       );
     }
 
-    // Filter source data for both cluster and heatmap sources
+    // Filter source data for cluster and heatmap sources
     const filtered = applyFilter(allClustersRef.current, filter);
-    const filteredIds = new Set(filtered.map((c) => c.id));
     const geojson = buildGeojson(filtered);
 
     (map.getSource("clusters") as mapboxgl.GeoJSONSource)?.setData(geojson);
     (map.getSource("heatmap-source") as mapboxgl.GeoJSONSource)?.setData(geojson);
-
-    // Pulse markers: visible only in cluster mode and when cluster passes filter
-    pulseMarkersRef.current.forEach((m) => {
-      const el = m.getElement() as HTMLElement;
-      const id = el.getAttribute("data-cluster-id");
-      el.style.display =
-        showClusters && (!id || filteredIds.has(id)) ? "" : "none";
-    });
   }, [mode, filter, mapReady]);
 
   return (

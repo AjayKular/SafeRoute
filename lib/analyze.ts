@@ -78,6 +78,40 @@ const fixMap: Record<DominantType, Omit<Fix, "reason">[]> = {
   ],
 };
 
+// Plain-English description of what each intervention physically involves
+export const fixDescriptions: Record<string, string> = {
+  "Adaptive signal timing":
+    "Automatically adjusts green-phase lengths based on real-time traffic demand, reducing the stop-and-go patterns that cause rear-end collisions.",
+  "Advance warning signage":
+    "Posts warning signs well before the intersection so drivers begin decelerating earlier, extending the gap between vehicles during sudden stops.",
+  "Reflective lane markings":
+    "Applies high-visibility retroreflective paint and raised markers that remain readable in rain and darkness, helping drivers maintain safe following distances.",
+  "Protected left-turn phase":
+    "Adds a dedicated green arrow signal that gives turning vehicles their own time to move without conflicting with oncoming traffic.",
+  "Left-turn advance signal":
+    "Activates a green arrow before opposing through traffic receives its green, giving turning vehicles a clear window to complete the manoeuvre safely.",
+  "Sight line clearing":
+    "Removes obstructions — parked vehicles, overgrown vegetation, signage — that block the view of oncoming traffic for drivers making turns.",
+  "Pedestrian scramble phase":
+    "Gives pedestrians exclusive crossing time in all directions while all vehicle traffic is held at red, eliminating every vehicle–pedestrian conflict point.",
+  "Countdown pedestrian timers":
+    "Displays the seconds remaining to cross, reducing last-second dashes and helping pedestrians and drivers anticipate when the signal will change.",
+  "Raised crosswalk":
+    "Elevates the crossing surface to road-hump height, forcing approaching vehicles to slow down and making pedestrians more visible to drivers.",
+  "Roundabout conversion":
+    "Replaces the intersection with a circular flow that eliminates head-on and right-angle conflicts by design, reducing injury collisions by over 70%.",
+  "All-way stop installation":
+    "Requires every vehicle to stop and yield before entering, equalising right-of-way and forcing gap judgement at low approach speed.",
+  "Yield sign replacement":
+    "Converts uncontrolled entry to a yield obligation, reducing conflict speeds without the full infrastructure cost of a traffic signal.",
+  "Full intersection redesign":
+    "Comprehensively rebuilds the geometry, controls, and markings to address the multiple collision causes that no single fix can resolve.",
+  "Traffic signal installation":
+    "Formalises right-of-way with traffic signals, directly eliminating the ambiguity about who goes first that underlies most angle collisions.",
+  "Speed reduction zone":
+    "Lowers the posted speed limit and adds enforcement markings, reducing both how often collisions occur and how severe they are when they do.",
+};
+
 // One-sentence reason explaining why each fix works at this type of intersection
 const fixReasons: Record<string, string> = {
   "Adaptive signal timing":

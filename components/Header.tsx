@@ -130,14 +130,6 @@ export default function Header({ clusters, loading }: HeaderProps) {
           color="var(--amber)"
         />
 
-        <span style={{ color: "var(--border)", fontSize: "16px", lineHeight: 1 }}>|</span>
-
-        <Stat
-          label="Data"
-          value="2015–2022"
-          loading={false}
-          color="var(--muted)"
-        />
       </div>
 
       {/* ── Right badge ───────────────────────────────────────────────────── */}

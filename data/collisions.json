@@ -75866,6 +75866,7 @@
       "turning": 0,
       "pedestrian": 0,
       "cyclist": 0,
+
       "angle": 0,
       "other": 1
     },
