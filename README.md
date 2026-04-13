@@ -76,7 +76,6 @@ Collision records are sourced from the **[City of Kitchener Open Data portal](ht
 
 ## Challenges
 
-- **Solo build in 24 hours** — full-stack product from raw data to deployed app in a single hackathon session
 - **Real data pipeline** — transformed raw municipal CSV exports into a structured GeoJSON cluster format with risk scoring, severity rates, and collision-type proportions
 - **No external AI** — the analysis and simulation engine is entirely rule-based TypeScript; every explanation and fix recommendation is generated deterministically from the collision data itself
 
